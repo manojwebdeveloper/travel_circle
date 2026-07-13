@@ -1,0 +1,31 @@
+# Xcode
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xccheckout
+*.moved-aside
+*.xcworkspace/xcuserdata/
+
+# Build
+build/
+.build/
+
+# Dependency managers
+Pods/
+Carthage/Build/
+.swiftpm/
+
+# Secrets
+*.p8
+*.p12
+*.mobileprovision
+GoogleService-Info.plist
+.env
+.env.*
+!*.example
+
+# macOS
+.DS_Store
+
+# Generated project
+Harbor.xcodeproj/
