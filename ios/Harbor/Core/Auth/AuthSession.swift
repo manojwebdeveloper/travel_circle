@@ -1,6 +1,6 @@
 import AuthenticationServices
 import CryptoKit
-import FirebaseAuth
+@preconcurrency import FirebaseAuth
 import FirebaseFirestore
 import FirebaseFunctions
 import Foundation
