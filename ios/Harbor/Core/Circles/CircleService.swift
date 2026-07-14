@@ -2,6 +2,11 @@
 @preconcurrency import FirebaseFunctions
 import Foundation
 
+// Firebase Functions accepts immutable Foundation dictionaries, but its Objective-C
+// API does not declare Sendable conformance. Harbor only places immutable String and
+// NSNumber values in these request dictionaries.
+extension NSDictionary: @retroactive @unchecked Sendable {}
+
 @MainActor
 final class CircleService: ObservableObject {
     @Published private(set) var circles: [FirebaseCircleSummary] = []
@@ -109,15 +114,18 @@ final class CircleService: ObservableObject {
         kind: FirebaseCircleSummary.Kind,
         expiresAt: Date?
     ) async throws -> String {
-        var payload: FirebaseCallablePayload = [
+        var values: [String: Any] = [
             "name": name.trimmingCharacters(in: .whitespacesAndNewlines),
             "kind": kind.rawValue
         ]
         if let expiresAt {
-            payload["expiresAtMs"] = String(Int64(expiresAt.timeIntervalSince1970 * 1_000))
+            values["expiresAtMs"] = NSNumber(value: Int64(expiresAt.timeIntervalSince1970 * 1_000))
         }
 
-        let data = try await call("createCircle", payload: payload)
+        let data = try await call(
+            "createCircle",
+            payload: NSDictionary(dictionary: values)
+        )
         guard let circleID = data["circleId"] as? String else {
             throw CircleServiceError.invalidServerResponse
         }
@@ -128,7 +136,7 @@ final class CircleService: ObservableObject {
     func createInvitation(circleID: String) async throws -> InvitationDetails {
         let data = try await call(
             "createInvitation",
-            payload: ["circleId": circleID]
+            payload: NSDictionary(object: circleID, forKey: "circleId" as NSString)
         )
         guard let code = data["code"] as? String,
               let circleName = data["circleName"] as? String,
@@ -155,7 +163,7 @@ final class CircleService: ObservableObject {
 
         let data = try await call(
             "lookupInvitation",
-            payload: ["code": normalizedCode]
+            payload: NSDictionary(object: normalizedCode, forKey: "code" as NSString)
         )
         guard let circleID = data["circleId"] as? String,
               let circleName = data["circleName"] as? String,
@@ -180,7 +188,7 @@ final class CircleService: ObservableObject {
         }
         let data = try await call(
             "acceptInvitation",
-            payload: ["code": normalizedCode]
+            payload: NSDictionary(object: normalizedCode, forKey: "code" as NSString)
         )
         if let circleID = data["circleId"] as? String {
             selectCircle(circleID)
@@ -193,27 +201,27 @@ final class CircleService: ObservableObject {
         }
         _ = try await call(
             "revokeInvitation",
-            payload: ["code": normalizedCode]
+            payload: NSDictionary(object: normalizedCode, forKey: "code" as NSString)
         )
     }
 
     func leaveCircle(circleID: String) async throws {
         _ = try await call(
             "leaveCircle",
-            payload: ["circleId": circleID]
+            payload: NSDictionary(object: circleID, forKey: "circleId" as NSString)
         )
     }
 
     func deleteCircle(circleID: String) async throws {
         _ = try await call(
             "deleteCircle",
-            payload: ["circleId": circleID]
+            payload: NSDictionary(object: circleID, forKey: "circleId" as NSString)
         )
     }
 
     private func call(
         _ name: String,
-        payload: FirebaseCallablePayload
+        payload: NSDictionary
     ) async throws -> [String: Any] {
         guard isFirebaseConfigured else {
             throw CircleServiceError.firebaseNotConfigured
@@ -237,7 +245,7 @@ final class CircleService: ObservableObject {
     nonisolated private static func performCallable(
         region: String,
         name: String,
-        payload: FirebaseCallablePayload
+        payload: NSDictionary
     ) async throws -> FirebaseCallableResponse {
         try await withCheckedThrowingContinuation {
             (continuation: CheckedContinuation<FirebaseCallableResponse, Error>) in
@@ -266,8 +274,6 @@ final class CircleService: ObservableObject {
         return nil
     }
 }
-
-private typealias FirebaseCallablePayload = [String: String]
 
 private struct FirebaseCallableResponse: @unchecked Sendable {
     let data: [String: Any]
