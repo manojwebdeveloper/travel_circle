@@ -33,6 +33,28 @@ struct FirebaseCircleSummary: Identifiable, Hashable {
     }
 }
 
+struct FirebaseCircleMember: Identifiable, Hashable {
+    let id: String
+    let displayName: String
+    let role: String
+    let sharingEnabled: Bool
+    let joinedAt: Date?
+
+    init?(document: DocumentSnapshot) {
+        guard let data = document.data(),
+              let userID = data["userId"] as? String,
+              let role = data["role"] as? String else {
+            return nil
+        }
+
+        id = userID
+        displayName = (data["displayName"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? "Harbor member"
+        self.role = role
+        sharingEnabled = data["sharingEnabled"] as? Bool ?? false
+        joinedAt = (data["joinedAt"] as? Timestamp)?.dateValue()
+    }
+}
+
 struct InvitationDetails: Hashable {
     let code: String
     let circleID: String
@@ -73,5 +95,11 @@ enum InvitationLink {
         guard let value else { return nil }
         let digits = value.filter(\.isNumber)
         return digits.count == 6 ? digits : nil
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }
