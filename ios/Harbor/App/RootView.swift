@@ -4,7 +4,6 @@ struct RootView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var authSession: AuthSession
     @EnvironmentObject private var circleService: CircleService
-    @StateObject private var store = PreviewStore()
 
     var body: some View {
         Group {
@@ -21,7 +20,7 @@ struct RootView: View {
             } else if authSession.user == nil {
                 SignInView()
             } else {
-                MainTabView(store: store)
+                MainTabView()
             }
         }
         .preferredColorScheme(nil)
@@ -52,20 +51,19 @@ struct RootView: View {
 
 struct MainTabView: View {
     @EnvironmentObject private var appState: AppState
-    @ObservedObject var store: PreviewStore
 
     var body: some View {
         ZStack(alignment: .bottom) {
             Group {
                 switch appState.selectedTab {
                 case .map:
-                    HarborMapView(store: store)
+                    FirebaseMapHomeView()
                 case .journey:
-                    JourneyDashboardView(store: store)
+                    FirebaseJourneyHomeView()
                 case .activity:
-                    ActivityTimelineView(store: store)
+                    FirebaseActivityHomeView()
                 case .you:
-                    YouView(store: store)
+                    YouView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
