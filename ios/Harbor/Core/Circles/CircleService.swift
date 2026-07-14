@@ -48,8 +48,9 @@ final class CircleService: ObservableObject {
                         return
                     }
 
-                    self.circles = snapshot?.documents
-                        .compactMap(FirebaseCircleSummary.init(document:)) ?? []
+                    self.circles = snapshot?.documents.compactMap {
+                        FirebaseCircleSummary(document: $0)
+                    } ?? []
                 }
             }
     }
