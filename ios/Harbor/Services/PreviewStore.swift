@@ -54,20 +54,23 @@ final class PreviewStore: ObservableObject {
             etaText: "18 min away"
         )
 
-        members = [maya, james, emily, alex]
+        let initialMembers = [maya, james, emily, alex]
+        let memberIDs = initialMembers.map(\.id)
+
+        members = initialMembers
         circles = [
             HarborCircle(
                 id: UUID(),
                 name: "The Harris Family",
                 kind: .family,
-                memberIDs: members.map(\.id),
+                memberIDs: memberIDs,
                 expiresAt: nil
             ),
             HarborCircle(
                 id: UUID(),
                 name: "Paris Weekend",
                 kind: .trip,
-                memberIDs: members.map(\.id),
+                memberIDs: memberIDs,
                 expiresAt: Calendar.current.date(byAdding: .day, value: 2, to: .now)
             )
         ]
@@ -78,7 +81,7 @@ final class PreviewStore: ObservableObject {
             destinationAddress: "12 Rue du Temple, Paris",
             meetupDate: Calendar.current.date(byAdding: .minute, value: 45, to: .now) ?? .now,
             destinationCoordinate: CLLocationCoordinate2D(latitude: 51.5079, longitude: -0.1285),
-            memberIDs: members.map(\.id)
+            memberIDs: memberIDs
         )
         activities = [
             HarborActivity(id: UUID(), date: .now, title: "Maya arrived at the meeting point", detail: "Hotel Le Marais", kind: .journey),
