@@ -2,21 +2,51 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var authSession: AuthSession
+    @EnvironmentObject private var circleService: CircleService
     @StateObject private var store = PreviewStore()
 
     var body: some View {
         Group {
-            if appState.hasCompletedOnboarding {
-                MainTabView(store: store)
-            } else {
+            if !authSession.isFirebaseConfigured {
+                FirebaseSetupRequiredView()
+            } else if authSession.isLoading {
+                ProgressView("Checking your account…")
+            } else if !appState.hasCompletedOnboarding {
                 OnboardingView {
                     withAnimation(.easeInOut(duration: 0.35)) {
-                        appState.hasCompletedOnboarding = true
+                        appState.completeOnboarding()
                     }
                 }
+            } else if authSession.user == nil {
+                SignInView()
+            } else {
+                MainTabView(store: store)
             }
         }
         .preferredColorScheme(nil)
+        .task(id: authSession.user?.uid) {
+            circleService.observeCircles(for: authSession.user?.uid)
+        }
+        .sheet(isPresented: invitationSheetBinding) {
+            JoinInvitationView(initialCode: appState.pendingInvitationCode ?? "") {
+                appState.pendingInvitationCode = nil
+            }
+            .environmentObject(circleService)
+        }
+    }
+
+    private var invitationSheetBinding: Binding<Bool> {
+        Binding(
+            get: {
+                authSession.user != nil && appState.pendingInvitationCode != nil
+            },
+            set: { isPresented in
+                if !isPresented {
+                    appState.pendingInvitationCode = nil
+                }
+            }
+        )
     }
 }
 
