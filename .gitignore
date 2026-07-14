@@ -14,6 +14,15 @@ build/
 Pods/
 Carthage/Build/
 .swiftpm/
+node_modules/
+firebase/functions/lib/
+
+# Firebase local files
+.firebaserc
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+ui-debug.log
 
 # Secrets
 *.p8
