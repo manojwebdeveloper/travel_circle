@@ -1,10 +1,8 @@
 import SwiftUI
 
 struct YouView: View {
-    @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var authSession: AuthSession
     @EnvironmentObject private var circleService: CircleService
-    @ObservedObject var store: PreviewStore
 
     var body: some View {
         NavigationStack {
@@ -38,27 +36,13 @@ struct YouView: View {
                 }
 
                 Section("Location sharing") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Label(
-                            appState.isSharingPaused ? "Location sharing is paused" : "Location sharing is on",
-                            systemImage: appState.isSharingPaused ? "pause.circle.fill" : "location.fill"
-                        )
+                    Label("Location service not connected", systemImage: "location.slash.fill")
                         .font(.headline)
-                        .foregroundStyle(appState.isSharingPaused ? HarborColors.slate : HarborColors.safeGreen)
+                        .foregroundStyle(HarborColors.warmAmber)
 
-                        Text("Shared circle access is controlled by your Firebase memberships. Real background location sync will be connected in the next milestone.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-
-                        Button(appState.isSharingPaused ? "Resume sharing" : "Pause sharing") {
-                            withAnimation(.snappy) {
-                                appState.isSharingPaused.toggle()
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(appState.isSharingPaused ? HarborColors.calmTeal : HarborColors.slate)
-                    }
-                    .padding(.vertical, 8)
+                    Text("This test milestone stores real accounts, circles and memberships. It does not upload or display device coordinates yet.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("Your circles") {
@@ -88,7 +72,6 @@ struct YouView: View {
                 }
 
                 Section("Settings") {
-                    NavigationLink("Location sharing") { PlaceholderSettingsView(title: "Location sharing") }
                     NavigationLink("Notifications") { PlaceholderSettingsView(title: "Notifications") }
                     NavigationLink("Privacy & data") { PrivacyDataView() }
                     NavigationLink("Subscription") { PlaceholderSettingsView(title: "Harbor Premium") }
@@ -124,13 +107,12 @@ private struct PrivacyDataView: View {
     var body: some View {
         List {
             Section("Visibility") {
-                NavigationLink("Who can see my location") { PlaceholderSettingsView(title: "Visibility") }
-                NavigationLink("Active sharing sessions") { PlaceholderSettingsView(title: "Active sessions") }
-                LabeledContent("New sessions expire", value: "Ask each time")
+                LabeledContent("Circle memberships", value: "Firebase")
+                LabeledContent("Location sharing", value: "Not connected")
             }
 
             Section("Your data") {
-                LabeledContent("Location history", value: "Not connected")
+                LabeledContent("Location history", value: "No data collected")
                 Button("Delete location history") { }
                     .disabled(true)
                 Button("Export account data") { }
