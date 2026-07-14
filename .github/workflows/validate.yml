@@ -30,8 +30,10 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
       - name: Build for iOS Simulator
+        id: ios-build
         shell: bash
         run: |
+          mkdir -p build-diagnostics
           set +e
           xcodebuild \
             -project Harbor.xcodeproj \
@@ -42,10 +44,22 @@ jobs:
             build > /tmp/harbor-xcodebuild.log 2>&1
           status=$?
           if [ "$status" -ne 0 ]; then
-            echo "Xcode build failed. Relevant diagnostics:"
-            grep -n -E '(^|[[:space:]])(error:|fatal error:)|BUILD FAILED|The following build commands failed' /tmp/harbor-xcodebuild.log | tail -120 || true
-            echo "Last 80 lines:"
-            tail -80 /tmp/harbor-xcodebuild.log
+            {
+              echo "Xcode build failed. Relevant diagnostics:"
+              grep -n -E '(^|[[:space:]])(error:|fatal error:)|BUILD FAILED|The following build commands failed' /tmp/harbor-xcodebuild.log | tail -160 || true
+              echo
+              echo "Last 120 lines:"
+              tail -120 /tmp/harbor-xcodebuild.log
+            } > build-diagnostics/ios-build-errors.txt
+            cat build-diagnostics/ios-build-errors.txt
             exit "$status"
           fi
           echo "Xcode build succeeded."
+      - name: Upload iOS failure diagnostics
+        if: failure() && steps.ios-build.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-diagnostics
+          path: build-diagnostics/ios-build-errors.txt
+          if-no-files-found: error
+          retention-days: 7
