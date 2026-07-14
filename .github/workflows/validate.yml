@@ -30,11 +30,22 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
       - name: Build for iOS Simulator
-        run: >-
-          xcodebuild
-          -project Harbor.xcodeproj
-          -scheme Harbor
-          -sdk iphonesimulator
-          -destination 'generic/platform=iOS Simulator'
-          CODE_SIGNING_ALLOWED=NO
-          build
+        shell: bash
+        run: |
+          set +e
+          xcodebuild \
+            -project Harbor.xcodeproj \
+            -scheme Harbor \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build > /tmp/harbor-xcodebuild.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "Xcode build failed. Relevant diagnostics:"
+            grep -n -E '(^|[[:space:]])(error:|fatal error:)|BUILD FAILED|The following build commands failed' /tmp/harbor-xcodebuild.log | tail -120 || true
+            echo "Last 80 lines:"
+            tail -80 /tmp/harbor-xcodebuild.log
+            exit "$status"
+          fi
+          echo "Xcode build succeeded."
