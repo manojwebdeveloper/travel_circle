@@ -1,5 +1,5 @@
-import FirebaseFirestore
-import FirebaseFunctions
+@preconcurrency import FirebaseFirestore
+@preconcurrency import FirebaseFunctions
 import Foundation
 
 @MainActor
@@ -19,11 +19,6 @@ final class CircleService: ObservableObject {
 
     init(firebaseConfigured: Bool) {
         isFirebaseConfigured = firebaseConfigured
-    }
-
-    deinit {
-        circleListener?.remove()
-        memberListener?.remove()
     }
 
     var selectedCircle: FirebaseCircleSummary? {
