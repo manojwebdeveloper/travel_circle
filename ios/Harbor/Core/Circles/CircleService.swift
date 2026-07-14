@@ -109,12 +109,12 @@ final class CircleService: ObservableObject {
         kind: FirebaseCircleSummary.Kind,
         expiresAt: Date?
     ) async throws -> String {
-        var payload: [String: Any] = [
-            "name": name.trimmingCharacters(in: .whitespacesAndNewlines),
-            "kind": kind.rawValue
+        var payload: FirebaseCallablePayload = [
+            "name": .string(name.trimmingCharacters(in: .whitespacesAndNewlines)),
+            "kind": .string(kind.rawValue)
         ]
         if let expiresAt {
-            payload["expiresAtMs"] = Int64(expiresAt.timeIntervalSince1970 * 1_000)
+            payload["expiresAtMs"] = .integer(Int64(expiresAt.timeIntervalSince1970 * 1_000))
         }
 
         let data = try await call("createCircle", payload: payload)
@@ -126,7 +126,10 @@ final class CircleService: ObservableObject {
     }
 
     func createInvitation(circleID: String) async throws -> InvitationDetails {
-        let data = try await call("createInvitation", payload: ["circleId": circleID])
+        let data = try await call(
+            "createInvitation",
+            payload: ["circleId": .string(circleID)]
+        )
         guard let code = data["code"] as? String,
               let circleName = data["circleName"] as? String,
               let kindValue = data["circleKind"] as? String,
@@ -150,7 +153,10 @@ final class CircleService: ObservableObject {
             throw CircleServiceError.invalidInvitationCode
         }
 
-        let data = try await call("lookupInvitation", payload: ["code": normalizedCode])
+        let data = try await call(
+            "lookupInvitation",
+            payload: ["code": .string(normalizedCode)]
+        )
         guard let circleID = data["circleId"] as? String,
               let circleName = data["circleName"] as? String,
               let kindValue = data["circleKind"] as? String,
@@ -172,7 +178,10 @@ final class CircleService: ObservableObject {
         guard let normalizedCode = InvitationLink.normalizedCode(code) else {
             throw CircleServiceError.invalidInvitationCode
         }
-        let data = try await call("acceptInvitation", payload: ["code": normalizedCode])
+        let data = try await call(
+            "acceptInvitation",
+            payload: ["code": .string(normalizedCode)]
+        )
         if let circleID = data["circleId"] as? String {
             selectCircle(circleID)
         }
@@ -182,18 +191,30 @@ final class CircleService: ObservableObject {
         guard let normalizedCode = InvitationLink.normalizedCode(code) else {
             throw CircleServiceError.invalidInvitationCode
         }
-        _ = try await call("revokeInvitation", payload: ["code": normalizedCode])
+        _ = try await call(
+            "revokeInvitation",
+            payload: ["code": .string(normalizedCode)]
+        )
     }
 
     func leaveCircle(circleID: String) async throws {
-        _ = try await call("leaveCircle", payload: ["circleId": circleID])
+        _ = try await call(
+            "leaveCircle",
+            payload: ["circleId": .string(circleID)]
+        )
     }
 
     func deleteCircle(circleID: String) async throws {
-        _ = try await call("deleteCircle", payload: ["circleId": circleID])
+        _ = try await call(
+            "deleteCircle",
+            payload: ["circleId": .string(circleID)]
+        )
     }
 
-    private func call(_ name: String, payload: [String: Any]) async throws -> [String: Any] {
+    private func call(
+        _ name: String,
+        payload: FirebaseCallablePayload
+    ) async throws -> [String: Any] {
         guard isFirebaseConfigured else {
             throw CircleServiceError.firebaseNotConfigured
         }
@@ -201,25 +222,39 @@ final class CircleService: ObservableObject {
         errorMessage = nil
 
         do {
-            let response = try await withCheckedThrowingContinuation {
-                (continuation: CheckedContinuation<FirebaseCallableResponse, Error>) in
-                let callable = Functions.functions(region: region).httpsCallable(name)
-                callable.call(payload) { result, error in
-                    if let error {
-                        continuation.resume(throwing: error)
-                        return
-                    }
-                    guard let data = result?.data as? [String: Any] else {
-                        continuation.resume(throwing: CircleServiceError.invalidServerResponse)
-                        return
-                    }
-                    continuation.resume(returning: FirebaseCallableResponse(data: data))
-                }
-            }
+            let response = try await Self.performCallable(
+                region: region,
+                name: name,
+                payload: payload
+            )
             return response.data
         } catch {
             errorMessage = error.localizedDescription
             throw error
+        }
+    }
+
+    nonisolated private static func performCallable(
+        region: String,
+        name: String,
+        payload: FirebaseCallablePayload
+    ) async throws -> FirebaseCallableResponse {
+        let rawPayload = payload.mapValues(\.foundationValue)
+
+        return try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<FirebaseCallableResponse, Error>) in
+            let callable = Functions.functions(region: region).httpsCallable(name)
+            callable.call(rawPayload) { result, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let data = result?.data as? [String: Any] else {
+                    continuation.resume(throwing: CircleServiceError.invalidServerResponse)
+                    return
+                }
+                continuation.resume(returning: FirebaseCallableResponse(data: data))
+            }
         }
     }
 
@@ -231,6 +266,22 @@ final class CircleService: ObservableObject {
             return Date(timeIntervalSince1970: Double(integer) / 1_000)
         }
         return nil
+    }
+}
+
+private typealias FirebaseCallablePayload = [String: FirebaseCallableValue]
+
+private enum FirebaseCallableValue: Sendable {
+    case string(String)
+    case integer(Int64)
+
+    var foundationValue: Any {
+        switch self {
+        case .string(let value):
+            value
+        case .integer(let value):
+            NSNumber(value: value)
+        }
     }
 }
 
