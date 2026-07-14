@@ -5,13 +5,16 @@ import Foundation
 @MainActor
 final class CircleService: ObservableObject {
     @Published private(set) var circles: [FirebaseCircleSummary] = []
+    @Published private(set) var members: [FirebaseCircleMember] = []
+    @Published private(set) var selectedCircleID: String?
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
 
     let isFirebaseConfigured: Bool
 
     private let region = "europe-west2"
-    private var listener: ListenerRegistration?
+    private var circleListener: ListenerRegistration?
+    private var memberListener: ListenerRegistration?
     private var observedUserID: String?
 
     init(firebaseConfigured: Bool) {
@@ -19,21 +22,31 @@ final class CircleService: ObservableObject {
     }
 
     deinit {
-        listener?.remove()
+        circleListener?.remove()
+        memberListener?.remove()
+    }
+
+    var selectedCircle: FirebaseCircleSummary? {
+        guard let selectedCircleID else { return nil }
+        return circles.first { $0.id == selectedCircleID }
     }
 
     func observeCircles(for userID: String?) {
         guard observedUserID != userID else { return }
 
-        listener?.remove()
-        listener = nil
+        circleListener?.remove()
+        circleListener = nil
+        memberListener?.remove()
+        memberListener = nil
         observedUserID = userID
         circles = []
+        members = []
+        selectedCircleID = nil
 
         guard isFirebaseConfigured, let userID else { return }
 
         isLoading = true
-        listener = Firestore.firestore()
+        circleListener = Firestore.firestore()
             .collection("users")
             .document(userID)
             .collection("circleRefs")
@@ -48,8 +61,48 @@ final class CircleService: ObservableObject {
                         return
                     }
 
-                    self.circles = snapshot?.documents.compactMap {
+                    let decodedCircles = snapshot?.documents.compactMap {
                         FirebaseCircleSummary(document: $0)
+                    } ?? []
+                    self.circles = decodedCircles
+
+                    let nextSelection: String?
+                    if let selectedCircleID = self.selectedCircleID,
+                       decodedCircles.contains(where: { $0.id == selectedCircleID }) {
+                        nextSelection = selectedCircleID
+                    } else {
+                        nextSelection = decodedCircles.first?.id
+                    }
+                    self.selectCircle(nextSelection)
+                }
+            }
+    }
+
+    func selectCircle(_ circleID: String?) {
+        guard selectedCircleID != circleID else { return }
+
+        memberListener?.remove()
+        memberListener = nil
+        selectedCircleID = circleID
+        members = []
+
+        guard isFirebaseConfigured, let circleID else { return }
+
+        memberListener = Firestore.firestore()
+            .collection("circles")
+            .document(circleID)
+            .collection("members")
+            .order(by: "joinedAt")
+            .addSnapshotListener { [weak self] snapshot, error in
+                Task { @MainActor in
+                    guard let self else { return }
+                    if let error {
+                        self.errorMessage = error.localizedDescription
+                        return
+                    }
+
+                    self.members = snapshot?.documents.compactMap {
+                        FirebaseCircleMember(document: $0)
                     } ?? []
                 }
             }
@@ -73,6 +126,7 @@ final class CircleService: ObservableObject {
         guard let circleID = data["circleId"] as? String else {
             throw CircleServiceError.invalidServerResponse
         }
+        selectCircle(circleID)
         return circleID
     }
 
@@ -123,7 +177,10 @@ final class CircleService: ObservableObject {
         guard let normalizedCode = InvitationLink.normalizedCode(code) else {
             throw CircleServiceError.invalidInvitationCode
         }
-        _ = try await call("acceptInvitation", payload: ["code": normalizedCode])
+        let data = try await call("acceptInvitation", payload: ["code": normalizedCode])
+        if let circleID = data["circleId"] as? String {
+            selectCircle(circleID)
+        }
     }
 
     func revokeInvitation(code: String) async throws {
