@@ -110,11 +110,11 @@ final class CircleService: ObservableObject {
         expiresAt: Date?
     ) async throws -> String {
         var payload: FirebaseCallablePayload = [
-            "name": .string(name.trimmingCharacters(in: .whitespacesAndNewlines)),
-            "kind": .string(kind.rawValue)
+            "name": name.trimmingCharacters(in: .whitespacesAndNewlines),
+            "kind": kind.rawValue
         ]
         if let expiresAt {
-            payload["expiresAtMs"] = .integer(Int64(expiresAt.timeIntervalSince1970 * 1_000))
+            payload["expiresAtMs"] = String(Int64(expiresAt.timeIntervalSince1970 * 1_000))
         }
 
         let data = try await call("createCircle", payload: payload)
@@ -128,7 +128,7 @@ final class CircleService: ObservableObject {
     func createInvitation(circleID: String) async throws -> InvitationDetails {
         let data = try await call(
             "createInvitation",
-            payload: ["circleId": .string(circleID)]
+            payload: ["circleId": circleID]
         )
         guard let code = data["code"] as? String,
               let circleName = data["circleName"] as? String,
@@ -155,7 +155,7 @@ final class CircleService: ObservableObject {
 
         let data = try await call(
             "lookupInvitation",
-            payload: ["code": .string(normalizedCode)]
+            payload: ["code": normalizedCode]
         )
         guard let circleID = data["circleId"] as? String,
               let circleName = data["circleName"] as? String,
@@ -180,7 +180,7 @@ final class CircleService: ObservableObject {
         }
         let data = try await call(
             "acceptInvitation",
-            payload: ["code": .string(normalizedCode)]
+            payload: ["code": normalizedCode]
         )
         if let circleID = data["circleId"] as? String {
             selectCircle(circleID)
@@ -193,21 +193,21 @@ final class CircleService: ObservableObject {
         }
         _ = try await call(
             "revokeInvitation",
-            payload: ["code": .string(normalizedCode)]
+            payload: ["code": normalizedCode]
         )
     }
 
     func leaveCircle(circleID: String) async throws {
         _ = try await call(
             "leaveCircle",
-            payload: ["circleId": .string(circleID)]
+            payload: ["circleId": circleID]
         )
     }
 
     func deleteCircle(circleID: String) async throws {
         _ = try await call(
             "deleteCircle",
-            payload: ["circleId": .string(circleID)]
+            payload: ["circleId": circleID]
         )
     }
 
@@ -239,12 +239,10 @@ final class CircleService: ObservableObject {
         name: String,
         payload: FirebaseCallablePayload
     ) async throws -> FirebaseCallableResponse {
-        let rawPayload = payload.mapValues(\.foundationValue)
-
-        return try await withCheckedThrowingContinuation {
+        try await withCheckedThrowingContinuation {
             (continuation: CheckedContinuation<FirebaseCallableResponse, Error>) in
             let callable = Functions.functions(region: region).httpsCallable(name)
-            callable.call(rawPayload) { result, error in
+            callable.call(payload) { result, error in
                 if let error {
                     continuation.resume(throwing: error)
                     return
@@ -269,21 +267,7 @@ final class CircleService: ObservableObject {
     }
 }
 
-private typealias FirebaseCallablePayload = [String: FirebaseCallableValue]
-
-private enum FirebaseCallableValue: Sendable {
-    case string(String)
-    case integer(Int64)
-
-    var foundationValue: Any {
-        switch self {
-        case .string(let value):
-            value
-        case .integer(let value):
-            NSNumber(value: value)
-        }
-    }
-}
+private typealias FirebaseCallablePayload = [String: String]
 
 private struct FirebaseCallableResponse: @unchecked Sendable {
     let data: [String: Any]
