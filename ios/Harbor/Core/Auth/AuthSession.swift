@@ -1,8 +1,8 @@
-import AuthenticationServices
+@preconcurrency import AuthenticationServices
 import CryptoKit
 @preconcurrency import FirebaseAuth
 import FirebaseFirestore
-import FirebaseFunctions
+@preconcurrency import FirebaseFunctions
 import Foundation
 
 @MainActor
@@ -34,12 +34,6 @@ final class AuthSession: ObservableObject {
                 self?.user = user
                 self?.isLoading = false
             }
-        }
-    }
-
-    deinit {
-        if let authStateHandle, isFirebaseConfigured {
-            Auth.auth().removeStateDidChangeListener(authStateHandle)
         }
     }
 
