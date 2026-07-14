@@ -199,13 +199,24 @@ final class CircleService: ObservableObject {
         }
 
         errorMessage = nil
+
         do {
-            let callable = Functions.functions(region: region).httpsCallable(name)
-            let result = try await callable.call(payload)
-            guard let data = result.data as? [String: Any] else {
-                throw CircleServiceError.invalidServerResponse
+            let response = try await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<FirebaseCallableResponse, Error>) in
+                let callable = Functions.functions(region: region).httpsCallable(name)
+                callable.call(payload) { result, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                        return
+                    }
+                    guard let data = result?.data as? [String: Any] else {
+                        continuation.resume(throwing: CircleServiceError.invalidServerResponse)
+                        return
+                    }
+                    continuation.resume(returning: FirebaseCallableResponse(data: data))
+                }
             }
-            return data
+            return response.data
         } catch {
             errorMessage = error.localizedDescription
             throw error
@@ -221,6 +232,10 @@ final class CircleService: ObservableObject {
         }
         return nil
     }
+}
+
+private struct FirebaseCallableResponse: @unchecked Sendable {
+    let data: [String: Any]
 }
 
 enum CircleServiceError: LocalizedError {
