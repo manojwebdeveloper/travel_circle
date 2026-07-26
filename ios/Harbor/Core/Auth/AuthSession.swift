@@ -66,6 +66,28 @@ final class AuthSession: ObservableObject {
         }
     }
 
+    /// Temporary development bypass. Keeps the Apple Sign-In implementation intact,
+    /// but lets testers enter Harbor using a Firebase anonymous account.
+    func continueWithoutAppleForTesting() async {
+        guard isFirebaseConfigured else { return }
+
+        if Auth.auth().currentUser != nil {
+            user = Auth.auth().currentUser
+            return
+        }
+
+        isBusy = true
+        errorMessage = nil
+        defer { isBusy = false }
+
+        do {
+            let authResult = try await Auth.auth().signInAnonymously()
+            try await upsertProfile(for: authResult.user)
+        } catch {
+            errorMessage = readableMessage(for: error)
+        }
+    }
+
     func signOut() {
         guard isFirebaseConfigured else { return }
 
@@ -105,8 +127,6 @@ final class AuthSession: ObservableObject {
             let callable = Functions.functions(region: functionsRegion).httpsCallable("deleteAccount")
             _ = try await callable.call([:])
 
-            // The server deletes the Firebase user. Clearing the local session makes the
-            // UI transition immediately even before the auth-state listener refreshes.
             try? Auth.auth().signOut()
             user = nil
             return true
