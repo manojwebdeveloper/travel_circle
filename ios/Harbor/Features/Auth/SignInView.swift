@@ -1,4 +1,3 @@
-import AuthenticationServices
 import SwiftUI
 
 struct SignInView: View {
@@ -33,20 +32,28 @@ struct SignInView: View {
             Spacer()
 
             VStack(spacing: 14) {
-                SignInWithAppleButton(.signIn) { request in
-                    authSession.prepareSignInRequest(request)
-                } onCompletion: { result in
+                Button {
                     Task { @MainActor in
-                        await authSession.completeSignIn(result)
+                        await authSession.continueWithoutAppleForTesting()
                     }
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "apple.logo")
+                            .font(.system(size: 19, weight: .semibold))
+                        Text("Sign in with Apple")
+                            .font(.system(size: 17, weight: .semibold))
+                    }
+                    .foregroundStyle(colorScheme == .dark ? .black : .white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .background(colorScheme == .dark ? Color.white : Color.black)
+                    .clipShape(Capsule())
                 }
-                .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
-                .frame(height: 54)
-                .clipShape(Capsule())
+                .buttonStyle(.plain)
                 .disabled(authSession.isBusy)
 
                 if authSession.isBusy {
-                    ProgressView("Signing in securely…")
+                    ProgressView("Opening Harbor…")
                         .font(.footnote)
                 }
 
@@ -57,7 +64,7 @@ struct SignInView: View {
                         .multilineTextAlignment(.center)
                 }
 
-                Text("Apple may share your name and email only the first time you sign in. Harbor never receives your Apple password.")
+                Text("Temporary test mode: this button currently skips the Apple authentication sheet and creates a private Firebase test session. The Apple Sign-In implementation remains in the project for later activation.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
